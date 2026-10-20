@@ -11,6 +11,20 @@ dependencies = [
 [project.scripts]
 aicut-analyze = "aicut_analyzer.cli:main"
 
+[project.optional-dependencies]
+plot = [
+    "matplotlib>=3.11.2",
+]
+
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
