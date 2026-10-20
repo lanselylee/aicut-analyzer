@@ -1,5 +1,7 @@
 # aicut-analyzer
 
+[![test](https://github.com/lanselylee/aicut-analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/lanselylee/aicut-analyzer/actions/workflows/test.yml)
+
 Footage quality analysis for vlog editing: which seconds of each clip are sharp, steady and well exposed, and which
 stretch of the clip is worth using.
 
@@ -11,6 +13,13 @@ and a proposed in/out point, so the model only has to decide the story.
 footage ─▶ aicut-analyzer (deterministic, per frame) ─▶ quality report ─▶ LLM (story, order) ─▶ edit ─▶ human review
 ```
 
+![Quality curves of three clips](docs/quality-curves.png)
+
+*Three real clips. Black: the blended quality score; green: the stretch the analyzer picks; red dashes: the stretch
+chosen by eye from thumbnails. In the bottom clip the eye's cut starts inside a motion-blur dip (4.4–4.7 s) that the
+analyzer avoids; in the middle one the analyzer keeps a steady but dull shot of a lid, where the eye kept the moment
+the drink turns to the camera.*
+
 ## Usage
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
@@ -20,6 +29,8 @@ uv sync
 uv run aicut-analyze path/to/footage/                         # a table of scores and the best stretch per clip
 uv run aicut-analyze path/to/footage/ --json report.json      # plus the full per-frame curves
 uv run aicut-analyze path/to/footage/ --film film.html        # compare with the cuts of an existing edit
+uv sync --extra plot
+uv run aicut-analyze path/to/footage/ --film film.html --plot curves.png --clips A.mov B.mov   # draw the curves
 ```
 
 `--film` reads an [OpenFilm](https://github.com/openfilm/openfilm) `film.html` and puts its trims (`#t=in,out`) next
@@ -56,6 +67,19 @@ Analyzers follow the Strategy pattern: adding a signal (faces, smiles, duplicate
 `Analyzer` subclass; the scorer and the picker do not change. Raw values are kept next to scores so that thresholds can
 be tuned against real footage.
 
+## Tests
+
+```sh
+uv run pytest
+```
+
+The analyzers are tested on synthetic footage with known defects (`tests/synthetic.py`): a textured scene seen
+through a moving crop, with Gaussian blur, random camera jitter or overexposure added to chosen frames. The tests
+check that each defect lowers its own score where it was added and nowhere else, that a steady pan is not taken for
+shake, and that a scene with less detail is not taken for blur. One test keeps the old whole-clip sharpness reference
+to show it fails that case. An end-to-end test encodes a clip to MP4 and checks the picked stretch avoids its shaky
+and blurred seconds.
+
 ## Findings so far
 
 Tested on 12 iPhone clips (52 s) of an autumn walk, against cuts chosen by eye for a 35-second vlog:
@@ -79,7 +103,6 @@ Tested on 12 iPhone clips (52 s) of an autumn walk, against cuts chosen by eye f
 - [ ] Duplicate and near-duplicate shot detection
 - [ ] Beat detection on the music track, to align cut lengths
 - [ ] Color statistics per clip, to match grades across shots
-- [ ] Unit tests on synthetic footage (generated blur, shake and clipping with known values)
 - [ ] Generate an OpenFilm `film.html` from the report and an LLM's story plan
 
 ## License
