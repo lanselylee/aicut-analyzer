@@ -1,7 +1,8 @@
-"""aicut-analyze <folder> [--film film.html] [--json out.json]
+"""aicut-analyze <folder> [--film film.html] [--json out.json] [--plot out.png] [--clips NAME ...]
 
 Scores every clip in a folder and proposes its best stretch. With --film, compares the proposals with the stretches an
-OpenFilm film.html already uses (its `#t=in,out`), to see where the numbers and the eye disagree.
+OpenFilm film.html already uses (its `#t=in,out`), to see where the numbers and the eye disagree. --plot draws the
+quality curves (needs the `plot` extra); --clips limits the run to some clips.
 """
 from __future__ import annotations
 
@@ -40,6 +41,8 @@ def main() -> None:
     ap.add_argument("folder", type=Path)
     ap.add_argument("--film", type=Path, help="an OpenFilm film.html to compare against")
     ap.add_argument("--json", type=Path, help="write the full report, curves included")
+    ap.add_argument("--plot", type=Path, help="draw the quality curves to this PNG")
+    ap.add_argument("--clips", nargs="+", metavar="NAME", help="only these clips (file names)")
     args = ap.parse_args()
 
     sampler = FrameSampler()
@@ -48,7 +51,10 @@ def main() -> None:
     picks = film_picks(args.film) if args.film else {}
 
     reports = []
-    for path in sorted(p for p in args.folder.iterdir() if p.suffix.lower() in VIDEO):
+    paths = sorted(p for p in args.folder.iterdir() if p.suffix.lower() in VIDEO)
+    if args.clips:
+        paths = [p for p in paths if p.name in args.clips]
+    for path in paths:
         rep = picker.pick(scorer.report(sampler.sample(path)))
         reports.append(rep)
 
@@ -72,6 +78,9 @@ def main() -> None:
     if args.json:
         args.json.write_text(json.dumps([to_json(r) for r in reports], ensure_ascii=False, indent=1))
         print(f"\n→ {args.json}")
+    if args.plot:
+        from .plot import plot_reports
+        print(f"→ {plot_reports(reports, args.plot, picks)}")
 
 
 if __name__ == "__main__":
