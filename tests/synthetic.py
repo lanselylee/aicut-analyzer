@@ -62,3 +62,38 @@ def write(frames: list[np.ndarray], path: Path, fps: float = 30.0) -> Path:
         out.write(f)
     out.release()
     return path
+
+
+def workout(segments: list[tuple[str, float]], period: float = 2.0, seed: int = 0,
+            light_drift: float = 0.0) -> tuple[list[np.ndarray], list[float]]:
+    """A tripod shot of a bar moving up and down in front of a busy background.
+
+    `segments` is a script of ("still", seconds), ("reps", count) and ("fidget", seconds: the bar wandering at
+    random, the way someone adjusts a seat). Each rep lifts the bar and brings it back over `period` s. Returns the
+    frames and the times each rep ends (the bar back at rest). `light_drift` brightens the picture by that many
+    levels over the clip, like a cloud passing a window.
+    """
+    rng = np.random.default_rng(seed)
+    bg = scene(seed)[300:300 + H, 300:300 + W]
+    ys, ends = [], []
+    rest, lift = 470.0, 260.0
+    for kind, amount in segments:
+        if kind == "still":
+            ys += [rest] * round(amount * FPS)
+        elif kind == "reps":
+            n = round(period * FPS)
+            for _ in range(int(amount)):
+                ys += [rest - lift * (1 - np.cos(2 * np.pi * i / n)) / 2 for i in range(n)]
+                ends.append(len(ys) / FPS)
+        elif kind == "fidget":
+            walk = np.cumsum(rng.normal(0, 12, round(amount * FPS)))
+            ys += list(np.clip(rest + walk, 150, 600))
+            ys += [rest]
+    frames = []
+    for i, y in enumerate(ys):
+        f = bg.copy()
+        cv2.rectangle(f, (60, int(y)), (300, int(y) + 40), (240, 240, 240), -1)
+        if light_drift:
+            f = cv2.convertScaleAbs(f, alpha=1.0, beta=light_drift * i / len(ys))
+        frames.append(f)
+    return frames, ends
