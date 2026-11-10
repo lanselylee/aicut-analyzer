@@ -11,10 +11,26 @@ dependencies = [
 
 [project.scripts]
 aicut-analyze = "aicut_analyzer.cli:main"
+aicut-talk = "aicut_analyzer.talk:main"
+aicut-notes = "aicut_analyzer.notes:main"
 
 [project.optional-dependencies]
 plot = [
     "matplotlib>=3.11.2",
+]
+speech = [
+    "mlx-whisper>=0.4.3",
+    "opencc-python-reimplemented>=0.1.7",
+]
+llm = [
+    "google-genai>=2.34.0",
+    "pypinyin>=0.55.0",
+]
+asr = [
+    "funasr>=1.4.20",
+    "modelscope>=1.40.2",
+    "torch>=2.15.0",
+    "torchaudio>=2.11.1",
 ]
 
 [build-system]
