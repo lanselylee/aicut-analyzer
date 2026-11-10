@@ -201,10 +201,18 @@ CEILING_DBTP = -1.0
 
 def measure(path: Path, ranges: list[tuple[float, float]]) -> tuple[float, float]:
     """Integrated loudness (LUFS, EBU R128) and true peak (dBTP) of the stretches of a file the cut keeps."""
-    pick = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in ranges) or "1"
-    err = subprocess.run(["ffmpeg", "-nostats", "-i", str(path), "-vn", "-af",
-                          f"aselect='{pick}',asetpts=N/SR/TB,ebur128=peak=true", "-f", "null", "-"],
-                         capture_output=True, text=True).stderr
+    # atrim + concat, not aselect: older ffmpeg builds (Ubuntu's 6.x) select whole audio frames by aselect's `t`
+    # and measured every stretch alike.
+    if ranges:
+        n = len(ranges)
+        cuts = "".join(f"[s{k}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[c{k}];"
+                       for k, (a, b) in enumerate(ranges))
+        graph = (f"[0:a]asplit={n}" + "".join(f"[s{k}]" for k in range(n)) + ";" + cuts
+                 + "".join(f"[c{k}]" for k in range(n)) + f"concat=n={n}:v=0:a=1,ebur128=peak=true[out]")
+    else:
+        graph = "[0:a]ebur128=peak=true[out]"
+    err = subprocess.run(["ffmpeg", "-nostats", "-i", str(path), "-filter_complex", graph, "-map", "[out]",
+                          "-f", "null", "-"], capture_output=True, text=True).stderr
     summary = err[err.rfind("Summary:"):]
     i = re.search(r"I:\s+(-?[\d.]+|-inf) LUFS", summary)
     pk = re.search(r"Peak:\s+(-?[\d.]+|-inf) dBFS", summary)
