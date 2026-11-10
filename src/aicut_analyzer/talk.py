@@ -76,9 +76,16 @@ def in_shooting_order(shots: list[Shot]) -> list[Shot]:
                                         s.probe.shot_at.timestamp() if s.probe.shot_at else 0, s.path.name))
 
 
+def local(when: datetime) -> datetime:
+    """A shot's time on the clock where it was taken. An iPhone writes its own time zone, which is kept; a time in
+    UTC (or with no zone) only says the instant, so it is put in this computer's time zone."""
+    off = when.utcoffset()
+    return when if off is not None and off.total_seconds() != 0 else when.astimezone()
+
+
 def day(shot: Shot) -> str:
-    """The day a shot was taken, as MM-DD in this computer's time zone ("" without a time)."""
-    return shot.probe.shot_at.astimezone().strftime("%m-%d") if shot.probe.shot_at else ""
+    """The day a shot was taken, as MM-DD where it was taken ("" without a time)."""
+    return local(shot.probe.shot_at).strftime("%m-%d") if shot.probe.shot_at else ""
 
 
 def in_day_order(shots: list[Shot], days: list[str]) -> list[Shot]:
@@ -466,7 +473,7 @@ def timeline(groups: list[list[Shot]], short: float) -> str:
     for k, group in enumerate(groups, 1):
         lines.append(f"scene {k}")
         for s in group:
-            when = s.probe.shot_at.astimezone().strftime("%m-%d %H:%M:%S") if s.probe.shot_at else "  (no time)  "
+            when = local(s.probe.shot_at).strftime("%m-%d %H:%M:%S") if s.probe.shot_at else "  (no time)  "
             kind = "b-roll, kept whole" if s.probe.duration < short else "talk"
             lines.append(f"  {when}  {s.path.name:<18}{s.probe.duration:7.1f}s  {kind}")
     return "\n".join(lines)
